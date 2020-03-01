@@ -5,7 +5,6 @@ import dash_html_components as html
 import dbm
 import plotly.graph_objs as go
 import re
-import smtp_alert
 
 
 # Set up the app
@@ -17,6 +16,7 @@ global dict_products
 
 
 
+#need to change to create list of machines
 def create_dict_list_of_product():
     dictlist = []
     unique_list = product_df.product_title.unique()
@@ -30,31 +30,38 @@ def dict_product_list(dict_list):
         product_list.append(dict.get('value'))
     return product_list
 
+
+#create structure
 product_df = dbm.read()
 dict_products = create_dict_list_of_product()
 
+
+#actual app layout
 app.layout = html.Div([
     html.Div([
-        html.H1('Price Optimization Dashboard'),
-        html.H2('Choose a product name'),
+        html.H1('Machine Data Visualization Dashboard'),
+        #html.H1('Price Optimization Dashboard'),
+        #html.H2('Choose a product name'),
+        html.H2('Choose a machine name'),
         dcc.Dropdown(
-            id='product-dropdown',
+            id='machine-dropdown',
             options=dict_products,
             multi=True,
-            value = ["Ben & Jerry's Wake and No Bake Cookie Dough Core Ice Cream","Brewdog Punk IPA"]
+            value = ["Machine Z"]
         ),
         dcc.Graph(
-            id='product-like-bar'
+            id='machine-like-bar'
         )
     ], style={'width': '40%', 'display': 'inline-block'}),
     html.Div([
-        html.H2('All product info'),
+        #html.H2('All product info'),
+        html.H2('All machine info'),
         html.Table(id='my-table'),
         html.P(''),
     ], style={'width': '55%', 'float': 'right', 'display': 'inline-block'}),
     html.Div([
-        html.H2('price graph'),
-        dcc.Graph(id='product-trend-graph'),
+        html.H2('Machine graph'),
+        dcc.Graph(id='machine-trend-graph'),
         html.P('')
     ], style={'width': '100%',  'display': 'inline-block'}),
     html.Div(id='hidden-email-alert', style={'display':'none'})
@@ -62,7 +69,7 @@ app.layout = html.Div([
 
 
 
-@app.callback(Output('product-like-bar', 'figure'), [Input('product-dropdown', 'value')])
+@app.callback(Output('machine-like-bar', 'figure'), [Input('machine-dropdown', 'value')])
 def update_graph(selected_dropdown_value):
     product_df_filter = product_df[(product_df['product_title'].isin(selected_dropdown_value))]
 
@@ -83,7 +90,7 @@ def update_graph(selected_dropdown_value):
             orientation='h'
         )],
         'layout':go.Layout(
-            title= 'Product Rating Trends',
+            title= 'Machine Rating Trends',
             yaxis = dict(
                 # autorange=True,
                 automargin=True
@@ -93,13 +100,13 @@ def update_graph(selected_dropdown_value):
     return figure
 
 # For the top topics graph
-@app.callback(Output('product-trend-graph', 'figure'), [Input('product-dropdown', 'value')])
+@app.callback(Output('machine-trend-graph', 'figure'), [Input('machine-dropdown', 'value')])
 def update_graph(selected_dropdown_value):
     product_df_filter = product_df[(product_df['product_title'].isin(selected_dropdown_value))]
 
     data = timeline_top_product_filtered(product_df_filter,selected_dropdown_value)
     # Edit the layout
-    layout = dict(title='Product Price Trends',
+    layout = dict(title='Machine price Trends',
                   xaxis=dict(title='datetime'),
                   yaxis=dict(title='Price'),
                   )
@@ -121,7 +128,7 @@ def timeline_top_product_filtered(top_product_filtered_df, selected_dropdown_val
 
 
 # for the table
-@app.callback(Output('my-table', 'children'), [Input('product-dropdown', 'value')])
+@app.callback(Output('my-table', 'children'), [Input('machine-dropdown', 'value')])
 def generate_table(selected_dropdown_value, max_rows=20):
     product_df_filter = product_df[(product_df['product_title'].isin(selected_dropdown_value))]
     product_df_filter = product_df_filter.sort_values(['index','datetime'], ascending=True)
@@ -130,18 +137,8 @@ def generate_table(selected_dropdown_value, max_rows=20):
         html.Td(product_df_filter.iloc[i][col]) for col in product_df_filter  .columns
     ]) for i in range(min(len(product_df_filter  ), max_rows))]
 
-@app.callback(Output('hidden-email-alert', 'id'), [Input('product-dropdown', 'value')])
-def send_alert(selected_dropdown_value):
-    # To send emails if the latest price is lower than original price
-    for product_title in selected_dropdown_value:
-        product_df_specific = product_df[product_df['product_title'] == product_title].sort_values('datetime',
-                                                                                                   ascending=True)
-        original_price = product_df_specific.product_price.values[0]
-        latest_price = product_df_specific.product_price.values[-1]
-        print(product_title, original_price, latest_price)
-        if (latest_price < original_price):
-            smtp_alert.send_alert_of_price_reduction(product_title, original_price, latest_price)
-    return None
+
+
 
 
 
